@@ -1,86 +1,105 @@
-from RPi.GPIO import GPIO
+import RPi.GPIO as GPIO
 import time
 import serial
+import threading
 
-# GPIO 设置
+# ===== GPIO 设置 =====
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
 
-enablePin = 22   # 22低电平使能 (工作模式)
-setPin = 16      # 16 高电平可能用于进入配置模式(根据你的注释)，平时保持低电平
-auxCheckPin = 27 # 27 辅助检测 (AUX)
+enablePin = 22    # EN：低电平工作，高电平休眠 :contentReference[oaicite:1]{index=1}
+setPin = 16       # SET：按需使用；普通透明传输建议保持低
+auxCheckPin = 18  # AUX：通讯状态指示 :contentReference[oaicite:2]{index=2}
+
+# AUX 忙/闲电平：通常 0=忙，1=闲；如果你实测相反，改这里
+AUX_IDLE = 1
+AUX_BUSY = 0
+
 
 def initGPIO():
     GPIO.setup(enablePin, GPIO.OUT)
     GPIO.setup(setPin, GPIO.OUT)
-    GPIO.setup(auxCheckPin, GPIO.IN)
-    
-    # 初始状态：EN高(休眠/禁用)，SET低(非配置状态)
-    GPIO.output(enablePin, GPIO.HIGH) 
-    GPIO.output(setPin, GPIO.LOW) 
+    # 内部上拉（有些模块AUX是开漏输出，弱上拉可能不够；必要时外接 4.7k~10k 上拉到3.3V）
+    GPIO.setup(auxCheckPin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+
+    # 启动即进入工作模式（更稳定）
+    GPIO.output(enablePin, GPIO.LOW)
+    GPIO.output(setPin, GPIO.LOW)
+
     time.sleep(0.1)
+    # 手册：EN 拉低后要延迟 50ms 后才可以接收串口数据 :contentReference[oaicite:3]{index=3}
+    time.sleep(0.06)
 
-def sendMessage(ser, data):
-    """
-    发送数据函数
-    :param ser: 已打开的串口对象
-    :param data: 要发送的字符串或字节数据
-    """
+
+def wait_aux_idle(timeout=3.0):
+    """等待 AUX 变为空闲（AUX_IDLE），超时返回 False"""
+    start = time.time()
+    while time.time() - start < timeout:
+        if GPIO.input(auxCheckPin) == AUX_IDLE:
+            return True
+        time.sleep(0.001)
+    return False
+
+
+def aux_monitor(stop_event, interval=0.01):
+    """后台实时打印 AUX 电平变化"""
+    last = GPIO.input(auxCheckPin)
+    print(f"[AUX] init={last} (idle={AUX_IDLE}, busy={AUX_BUSY})")
+    while not stop_event.is_set():
+        now = GPIO.input(auxCheckPin)
+        if now != last:
+            ts = time.strftime("%H:%M:%S")
+            label = "IDLE" if now == AUX_IDLE else "BUSY"
+            print(f"[AUX] {ts} {last} -> {now} ({label})")
+            last = now
+        time.sleep(interval)
+
+
+def sendMessage(ser, data: str | bytes):
     try:
-        # 1. 拉低 EN 引脚唤醒模块
-        # 手册说明：EN脚置低恢复正常工作
-        GPIO.output(enablePin, GPIO.LOW)
-        
-        # 2. 必须的延时
-        # 手册说明：EN拉低后要延迟 50ms 后才可以接收串口数据
-        time.sleep(0.06) 
+        # 发送前等空闲（更稳）
+        if not wait_aux_idle(timeout=3.0):
+            print("[WARN] AUX not idle before send (timeout)")
 
-        # 3. 处理数据格式 (转为bytes)
-        if isinstance(data, str):
-            data_to_send = data.encode('utf-8')
-        else:
-            data_to_send = data
-            
-        # 4. 串口发送
-        ser.write(data_to_send)
-        print(f"Sent: {data_to_send}")
+        payload = data.encode("utf-8") if isinstance(data, str) else data
 
-        # 5. 等待发送完成 (可选)
-        # 可以通过检测 AUX 引脚状态来判断模块是否处理完毕
-        # 简单处理可以加一点延时，或者检测 AUX
-        # while GPIO.input(auxCheckPin) == 0: # 假设低电平代表忙
-        #     time.sleep(0.001)
-        time.sleep(0.1) 
+        ser.write(payload)
+        ser.flush()
+        print(f"Sent: {payload!r}")
+
+        # 发送后等空闲（用 AUX 判断发送处理完成）
+        if not wait_aux_idle(timeout=3.0):
+            print("[WARN] AUX not idle after send (timeout)")
 
     except Exception as e:
         print(f"Send Error: {e}")
-    finally:
-        # 6. 发送结束后，如果需要省电，可以拉高 EN 进入休眠
-        # 如果需要持续接收，则不要拉高
-        # GPIO.output(enablePin, GPIO.HIGH) 
-        pass
 
-# --- 主程序示例 ---
-if __name__ == '__main__':
+
+if __name__ == "__main__":
+    ser = None
+    stop_event = threading.Event()
+    t = None
+
     try:
-        # 初始化GPIO
         initGPIO()
-        
-        # 初始化串口
-        # 注意：树莓派上的串口通常是 '/dev/ttyS0' 或 '/dev/ttyAMA0'
-        # 波特率默认为 9600 (手册默认值)
-        ser = serial.Serial('/dev/ttyS0', 9600, timeout=1)
-        
-        if ser.isOpen():
-            print("Serial Port Opened")
-            
-        # 发送测试消息
+
+        # 开启 AUX 实时监测线程
+        t = threading.Thread(target=aux_monitor, args=(stop_event,), daemon=True)
+        t.start()
+
+        # 打开串口（如不通，改成 /dev/ttyAMA0 试试）
+        ser = serial.Serial("/dev/ttyS0", 9600, timeout=1)
+        print("Serial Port Opened:", ser.isOpen())
+
         while True:
-            sendMessage(ser, "Hello LoRa")
-            time.sleep(2) # 每隔2秒发一次
+            sendMessage(ser, "Hello LoRa\r\n")
+            time.sleep(2)
 
     except KeyboardInterrupt:
-        if ser:
+        pass
+    finally:
+        stop_event.set()
+        if ser and ser.isOpen():
             ser.close()
         GPIO.cleanup()
         print("Program Exited")
