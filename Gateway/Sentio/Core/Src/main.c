@@ -32,7 +32,7 @@
 #include "MQ-4.h"
 #include "MQ-136.h"
 #include "buzzer.h"
-
+#include "lora_Operation.h"
 #include "stdio.h"
 #include "string.h"
 #include "stdbool.h"
@@ -113,8 +113,9 @@ int main(void)
 
   HAL_ADCEx_Calibration_Start(&hadc1);
   HAL_ADC_Start_DMA(&hadc1,values,4);
+  HAL_GPIO_WritePin(EN_GPIO_Port,EN_Pin,GPIO_PIN_SET);
 
-  Buzzer_On(100);
+  //Buzzer_On(100);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -130,8 +131,11 @@ int main(void)
     sprintf(ADCmsg, "ADC DMA Complete: CH1=%d, CH2=%d, CH3=%d, CH4=%d\r\n",
             values[0], values[1], values[2], values[3]);
 
-    HAL_UART_Transmit(&huart3, ADCmsg, strlen((char*)ADCmsg), 500);
+    //HAL_UART_Transmit(&huart3, ADCmsg, strlen((char*)ADCmsg),500);
 
+    send_to_lora(&huart3, ADCmsg, strlen((char*)ADCmsg));
+
+    HAL_Delay(500);
     float temperature = AHT20_Temperature();
     float humidity = AHT20_Humidity();
 
@@ -149,7 +153,8 @@ int main(void)
                        distance, temperature, humidity,mq4_voltage, mq4_ppm, mq4_do_state ,mq136_voltage, mq136_ppm, mq136_do_state
                        );
 
-   HAL_UART_Transmit(&huart3, buffer, len, 500);
+   // HAL_UART_Transmit(&huart3, buffer, len, 500);
+    send_to_lora(&huart3, buffer, len);
 
 HAL_Delay(1000);
     /* USER CODE END WHILE */

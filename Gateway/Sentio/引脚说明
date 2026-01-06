@@ -1,0 +1,10 @@
+# lora
+2026.1.6说明：
+PB0连接EN
+PB1连接AUX
+SET不接 
+vccgnd正常连
+串口使用串口3
+PB10连接loraRX
+PB11连接loraTX
+lora波特率9600
