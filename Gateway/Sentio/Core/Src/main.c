@@ -35,6 +35,8 @@
 #include "lora_Operation.h"
 #include "stdio.h"
 #include "string.h"
+#include "DeviceIDconf.h"  // 需要包含这个文件来使用 DeviceID_Write 和 DeviceID_Read
+
 #include "stdbool.h"
 /* USER CODE END Includes */
 
@@ -70,7 +72,8 @@ void SystemClock_Config(void);
 
 uint32_t values[4];
 uint8_t ADCmsg[100];
-
+uint32_t DeviceID = 0;
+volatile uint32_t g_device_id_live = 0;
 /* USER CODE END 0 */
 
 /**
@@ -115,6 +118,14 @@ int main(void)
   HAL_ADC_Start_DMA(&hadc1,values,4);
   HAL_GPIO_WritePin(EN_GPIO_Port,EN_Pin,GPIO_PIN_SET);
 
+  if (!DeviceID_Read(&DeviceID)) {
+    DeviceID = 0x12345678u;
+    DeviceID_Write(DeviceID);
+  }
+  g_device_id_live = DeviceID;
+
+
+  uint32_t i=0;//test
   //Buzzer_On(100);
   /* USER CODE END 2 */
 
@@ -122,9 +133,12 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+    i++;
+    g_UserIDConfig.userID=i;
+    g_device_id_live = g_UserIDConfig.userID;
 
     HCSR04_GetDistance(&htim1);
-
+    
     AHT20_Measure();
 
     //CH1=MQ4 CH2=MQ136 CH3=Vbat CH4=InternalTemp
