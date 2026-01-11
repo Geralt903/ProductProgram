@@ -71,9 +71,62 @@ void SystemClock_Config(void);
 /* USER CODE BEGIN 0 */
 
 uint32_t values[4];
-uint8_t ADCmsg[100];
 uint32_t DeviceID = 0;
 volatile uint32_t g_device_id_live = 0;
+
+#define LORA_PAYLOAD_LEN 16u
+
+static uint16_t scale_clamp_u16(float value, float scale)
+{
+  float scaled = value * scale;
+
+  if (scaled <= 0.0f) {
+    return 0u;
+  }
+  if (scaled >= 65535.0f) {
+    return 65535u;
+  }
+  return (uint16_t)(scaled + 0.5f);
+}
+
+static void pack_u16_be(uint8_t *dst, uint16_t value)
+{
+  dst[0] = (uint8_t)(value >> 8);
+  dst[1] = (uint8_t)value;
+}
+
+static void pack_u32_be(uint8_t *dst, uint32_t value)
+{
+  dst[0] = (uint8_t)(value >> 24);
+  dst[1] = (uint8_t)(value >> 16);
+  dst[2] = (uint8_t)(value >> 8);
+  dst[3] = (uint8_t)value;
+}
+
+static void build_lora_payload(uint8_t *payload,
+                               uint32_t device_id,
+                               float temperature,
+                               float humidity,
+                               float distance_cm,
+                               float mq4_ppm,
+                               float mq136_ppm)
+{
+  uint16_t temperature_u = scale_clamp_u16(temperature, 100.0f);
+  uint16_t humidity_u = scale_clamp_u16(humidity, 100.0f);
+  uint16_t distance_u = scale_clamp_u16(distance_cm, 10.0f);
+  uint16_t mq4_u = scale_clamp_u16(mq4_ppm, 10.0f);
+  uint16_t mq136_u = scale_clamp_u16(mq136_ppm, 10.0f);
+
+  memset(payload, 0, LORA_PAYLOAD_LEN);
+  pack_u32_be(payload + 0, device_id);
+  pack_u16_be(payload + 4, temperature_u);
+  pack_u16_be(payload + 6, humidity_u);
+  pack_u16_be(payload + 8, distance_u);
+  pack_u16_be(payload + 10, mq4_u);
+  pack_u16_be(payload + 12, mq136_u);
+  payload[14] = 0u;
+  payload[15] = 0u;
+}
 /* USER CODE END 0 */
 
 /**
@@ -141,34 +194,16 @@ int main(void)
     
     AHT20_Measure();
 
-    //CH1=MQ4 CH2=MQ136 CH3=Vbat CH4=InternalTemp
-    sprintf(ADCmsg, "ADC DMA Complete: CH1=%d, CH2=%d, CH3=%d, CH4=%d\r\n",
-            values[0], values[1], values[2], values[3]);
-
-    //HAL_UART_Transmit(&huart3, ADCmsg, strlen((char*)ADCmsg),500);
-
-    send_to_lora(&huart3, ADCmsg, strlen((char*)ADCmsg));
-
     HAL_Delay(500);
     float temperature = AHT20_Temperature();
     float humidity = AHT20_Humidity();
 
-    float mq4_voltage = MQ4_ReadAO(values[0]);       // 读取mq4AO电压
-    float mq4_ppm = MQ4_ReadPPM(mq4_voltage);   // 读取甲烷浓度（ppm）
-    uint8_t mq4_do_state = MQ4_ReadDO();      // 读取mq4DO状态
+    float mq4_ppm = MQ4_ReadPPM(MQ4_ReadAO(values[0]));
+    float mq136_ppm = MQ136_ReadPPM(MQ136_ReadAO(values[1]));
 
-    float mq136_voltage = MQ136_ReadAO(values[1]);       // 读取mq136AO电压
-    float mq136_ppm = MQ136_ReadPPM(mq136_voltage);   // 读取浓度（ppm）
-    uint8_t mq136_do_state = MQ136_ReadDO();      // 读取mq136DO状态
-
-    uint8_t buffer[500];
-    int len = snprintf((char*)buffer, sizeof(buffer),
-                       "Distance: %.2f cm \rTemperature: %.2f C  Humidity: %.2f %%\rMQ-4 AO: %.2f V\rMQ-4 PPM: %.2f ppm\rMQ-4 DO: %d\rMQ-136 AO: %.2f V\rMQ-136 PPM: %.2f ppm\rMQ-136 DO: %d\r\n",
-                       distance, temperature, humidity,mq4_voltage, mq4_ppm, mq4_do_state ,mq136_voltage, mq136_ppm, mq136_do_state
-                       );
-
-   // HAL_UART_Transmit(&huart3, buffer, len, 500);
-    send_to_lora(&huart3, buffer, len);
+    uint8_t payload[LORA_PAYLOAD_LEN];
+    build_lora_payload(payload, g_device_id_live, temperature, humidity, distance, mq4_ppm, mq136_ppm);
+    send_to_lora(&huart3, payload, LORA_PAYLOAD_LEN);
 
 HAL_Delay(1000);
     /* USER CODE END WHILE */
