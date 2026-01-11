@@ -204,6 +204,11 @@ int main(void)
     uint8_t payload[LORA_PAYLOAD_LEN];
     build_lora_payload(payload, g_device_id_live, temperature, humidity, distance, mq4_ppm, mq136_ppm);
     send_to_lora(&huart3, payload, LORA_PAYLOAD_LEN);
+    if (HAL_GPIO_ReadPin(AUX_GPIO_Port, GPIO_PIN_0) == GPIO_PIN_RESET) {
+      send_to_lora(&huart3, (uint8_t *)"0", 1);  // 如果引脚为低电平（0），发送 0
+    } else {
+      send_to_lora(&huart3, (uint8_t *)"1", 1);  // 如果引脚为高电平（1），发送 1
+    }
 
 HAL_Delay(1000);
     /* USER CODE END WHILE */

@@ -8,7 +8,7 @@ int send_to_lora(UART_HandleTypeDef *usart, uint8_t *data, uint16_t len)
     // 调用 HAL 库的串口发送函数，500 毫秒超时
     if (detect_occupied(AUX_GPIO_Port,AUX_Pin)==GPIO_PIN_SET)
     {
-        HAL_UART_Transmit(usart, "Device LORA Occupied", len, 0xFFFF);
+    	HAL_UART_Transmit(usart, (const uint8_t *)"Device LORA Occupied", len, 0xFFFF);
         return 1;
     }
     if (HAL_UART_Transmit(usart, data, len, 500) == HAL_OK)
