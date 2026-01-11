@@ -1,0 +1,2 @@
+../Core/Src/lora_Operation.c:6:5:send_to_lora	24	static
+../Core/Src/lora_Operation.c:21:5:detect_occupied	24	static

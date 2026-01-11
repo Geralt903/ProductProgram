@@ -1,0 +1,5 @@
+../Core/Src/stmflash.c:17:5:STMFLASH_ReadHalfWord	16	static
+../Core/Src/stmflash.c:29:6:STMFLASH_Write_NoCheck	40	static
+../Core/Src/stmflash.c:44:6:STMFLASH_Write	40	static
+../Core/Src/stmflash.c:104:6:STMFLASH_Read	40	static
+../Core/Src/stmflash.c:120:6:Flash_PageErase	16	static
