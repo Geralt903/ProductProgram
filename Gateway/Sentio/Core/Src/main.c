@@ -32,7 +32,6 @@
 #include "MQ-4.h"
 #include "MQ-136.h"
 #include "buzzer.h"
-#include "lora_Operation.h"
 #include "stdio.h"
 #include "string.h"
 #include "DeviceIDconf.h"  // 需要包含这个文件来使用 DeviceID_Write 和 DeviceID_Read
@@ -169,7 +168,7 @@ int main(void)
 
   HAL_ADCEx_Calibration_Start(&hadc1);
   HAL_ADC_Start_DMA(&hadc1,values,4);
-  HAL_GPIO_WritePin(EN_GPIO_Port,EN_Pin,GPIO_PIN_SET);
+  HAL_GPIO_WritePin(MD1_GPIO_Port, MD1_Pin, GPIO_PIN_SET);
 
   if (!DeviceID_Read(&DeviceID)) {
     DeviceID = 0x12345678u;
@@ -203,14 +202,9 @@ int main(void)
 
     uint8_t payload[LORA_PAYLOAD_LEN];
     build_lora_payload(payload, g_device_id_live, temperature, humidity, distance, mq4_ppm, mq136_ppm);
-    send_to_lora(&huart3, payload, LORA_PAYLOAD_LEN);
-    if (HAL_GPIO_ReadPin(AUX_GPIO_Port, GPIO_PIN_0) == GPIO_PIN_RESET) {
-      send_to_lora(&huart3, (uint8_t *)"0", 1);  // 如果引脚为低电平（0），发送 0
-    } else {
-      send_to_lora(&huart3, (uint8_t *)"1", 1);  // 如果引脚为高电平（1），发送 1
-    }
+    HAL_UART_Transmit(&huart3, payload, LORA_PAYLOAD_LEN, 500);
 
-HAL_Delay(1000);
+    HAL_Delay(1000);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
