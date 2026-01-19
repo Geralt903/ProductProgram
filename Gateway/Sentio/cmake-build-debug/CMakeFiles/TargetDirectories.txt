@@ -1,3 +1,3 @@
-E:/ENT/Sentio/cmake-build-debug/CMakeFiles/Sentio.elf.dir
-E:/ENT/Sentio/cmake-build-debug/CMakeFiles/edit_cache.dir
-E:/ENT/Sentio/cmake-build-debug/CMakeFiles/rebuild_cache.dir
+C:/Users/Gra/CLionProjects/ProductProgram/Gateway/Sentio/cmake-build-debug/CMakeFiles/Sentio.elf.dir
+C:/Users/Gra/CLionProjects/ProductProgram/Gateway/Sentio/cmake-build-debug/CMakeFiles/edit_cache.dir
+C:/Users/Gra/CLionProjects/ProductProgram/Gateway/Sentio/cmake-build-debug/CMakeFiles/rebuild_cache.dir
