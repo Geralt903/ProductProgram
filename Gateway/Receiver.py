@@ -15,7 +15,10 @@ ZERO_PIN = 24
 
 AUX_IDLE = 1
 AUX_BUSY = 0
-PACKET_LEN = 16
+PACKET_DIGITS = 35
+TEMP_SCALE = 100.0
+HUM_SCALE = 100.0
+DIST_SCALE = 100.0
 BIT_PULSE_S = 0.002
 
 def set_md_pin(pin: int, high: bool) -> None:
@@ -91,47 +94,59 @@ def emit_packet_bits(packet: bytes) -> None:
         for bit_index in range(7, -1, -1):
             output_bit((byte >> bit_index) & 1)
 
-def parse_packet(packet: bytes) -> dict:
-    if len(packet) != PACKET_LEN:
-        raise ValueError(f"unexpected packet length: {len(packet)}")
+def parse_digit_packet(digits: str) -> dict:
+    if len(digits) != PACKET_DIGITS or not digits.isdigit():
+        raise ValueError(f"unexpected packet digits: {digits!r}")
+    temperature_raw = int(digits[10:15])
+    humidity_raw = int(digits[15:20])
+    distance_raw = int(digits[20:25])
+    mq4_raw = int(digits[25:30])
+    mq136_raw = int(digits[30:35])
     return {
-        "device_id": int.from_bytes(packet[0:4], "big"),
-        "temperature": int.from_bytes(packet[4:6], "big"),
-        "humidity": int.from_bytes(packet[6:8], "big"),
-        "distance": int.from_bytes(packet[8:10], "big"),
-        "mq4": int.from_bytes(packet[10:12], "big"),
-        "mq136": int.from_bytes(packet[12:14], "big"),
-        "reserved": packet[14:16],
+        "device_id": int(digits[0:10]),
+        "temperature_raw": temperature_raw,
+        "humidity_raw": humidity_raw,
+        "distance_raw": distance_raw,
+        "mq4": mq4_raw,
+        "mq136": mq136_raw,
+        "temperature": temperature_raw / TEMP_SCALE,
+        "humidity": humidity_raw / HUM_SCALE,
+        "distance": distance_raw / DIST_SCALE,
     }
 
 def receiver_loop(ser: serial.Serial, stop_event: threading.Event):
     print("=== Receiver started (waiting data) ===")
-    buffer = bytearray()
+    digit_buffer = []
     while not stop_event.is_set():
         try:
             if GPIO.input(AUX_PIN) == AUX_BUSY:
                 if not wait_aux_idle(stop_event=stop_event):
                     continue
-            chunk = ser.read(PACKET_LEN)
+            chunk = ser.read(128)
             if not chunk:
                 continue
-            buffer.extend(chunk)
-            while len(buffer) >= PACKET_LEN:
-                packet = bytes(buffer[:PACKET_LEN])
-                del buffer[:PACKET_LEN]
+            for byte in chunk:
+                if 48 <= byte <= 57:
+                    digit_buffer.append(chr(byte))
+                else:
+                    if digit_buffer:
+                        digit_buffer.clear()
+            while len(digit_buffer) >= PACKET_DIGITS:
+                digits = "".join(digit_buffer[:PACKET_DIGITS])
+                del digit_buffer[:PACKET_DIGITS]
 
                 ts = time.strftime("%H:%M:%S")
-                parsed = parse_packet(packet)
-                print(f"[{ts}] RX(hex) : {format_hex(packet)}")
+                parsed = parse_digit_packet(digits)
+                print(f"[{ts}] RX(digits): {digits}")
                 print(
-                    f"[{ts}] id=0x{parsed['device_id']:08X} "
-                    f"temp={parsed['temperature']} "
-                    f"hum={parsed['humidity']} "
-                    f"dist={parsed['distance']} "
+                    f"[{ts}] id={parsed['device_id']:010d} "
+                    f"temp={parsed['temperature']:.2f} "
+                    f"hum={parsed['humidity']:.2f} "
+                    f"dist={parsed['distance']:.2f} "
                     f"mq4={parsed['mq4']} "
                     f"mq136={parsed['mq136']}"
                 )
-                emit_packet_bits(packet)
+                emit_packet_bits(digits.encode("ascii"))
 
         except Exception as e:
             print("Receiver error:", e)

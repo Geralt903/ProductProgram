@@ -45,7 +45,10 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define DEVICE_ID 12345678u
+#define TEMP_SCALE 100.0f
+#define HUM_SCALE 100.0f
+#define DIST_SCALE 100.0f
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -69,7 +72,6 @@ void SystemClock_Config(void);
 /* USER CODE BEGIN 0 */
 
 uint32_t values[4];
-uint8_t ADCmsg[100];
 
 /* USER CODE END 0 */
 
@@ -126,30 +128,28 @@ int main(void)
 
     AHT20_Measure();
 
-    //CH1=MQ4 CH2=MQ136 CH3=Vbat CH4=InternalTemp
-    sprintf(ADCmsg, "ADC DMA Complete: CH1=%d, CH2=%d, CH3=%d, CH4=%d\r\n",
-            values[0], values[1], values[2], values[3]);
-
-    HAL_UART_Transmit(&huart3, ADCmsg, strlen((char*)ADCmsg), 500);
-
     float temperature = AHT20_Temperature();
     float humidity = AHT20_Humidity();
 
-    float mq4_voltage = MQ4_ReadAO(values[0]);       // 读取mq4AO电压
-    float mq4_ppm = MQ4_ReadPPM(mq4_voltage);   // 读取甲烷浓度（ppm）
-    uint8_t mq4_do_state = MQ4_ReadDO();      // 读取mq4DO状态
+    float mq4_voltage = MQ4_ReadAO(values[0]);
+    float mq4_ppm = MQ4_ReadPPM(mq4_voltage);
 
-    float mq136_voltage = MQ136_ReadAO(values[1]);       // 读取mq136AO电压
-    float mq136_ppm = MQ136_ReadPPM(mq136_voltage);   // 读取浓度（ppm）
-    uint8_t mq136_do_state = MQ136_ReadDO();      // 读取mq136DO状态
+    float mq136_voltage = MQ136_ReadAO(values[1]);
+    float mq136_ppm = MQ136_ReadPPM(mq136_voltage);
 
-    uint8_t buffer[500];
-    int len = snprintf((char*)buffer, sizeof(buffer),
-                       "Distance: %.2f cm \rTemperature: %.2f C  Humidity: %.2f %%\rMQ-4 AO: %.2f V\rMQ-4 PPM: %.2f ppm\rMQ-4 DO: %d\rMQ-136 AO: %.2f V\rMQ-136 PPM: %.2f ppm\rMQ-136 DO: %d\r\n",
-                       distance, temperature, humidity,mq4_voltage, mq4_ppm, mq4_do_state ,mq136_voltage, mq136_ppm, mq136_do_state
-                       );
+    uint16_t temperature_i = (uint16_t)(temperature * TEMP_SCALE);
+    uint16_t humidity_i = (uint16_t)(humidity * HUM_SCALE);
+    uint16_t distance_i = (uint16_t)(distance * DIST_SCALE);
+    uint16_t mq4_i = (uint16_t)(mq4_ppm);
+    uint16_t mq136_i = (uint16_t)(mq136_ppm);
 
-   HAL_UART_Transmit(&huart3, buffer, len, 500);
+    char packet[64];
+    int len = snprintf(packet, sizeof(packet),
+                       "%010lu%05u%05u%05u%05u%05u",
+                       (unsigned long)DEVICE_ID,
+                       temperature_i, humidity_i, distance_i, mq4_i, mq136_i);
+
+    HAL_UART_Transmit(&huart3, (uint8_t *)packet, len, 500);
 
 HAL_Delay(1000);
     /* USER CODE END WHILE */
