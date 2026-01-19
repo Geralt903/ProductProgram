@@ -18,21 +18,27 @@ AUX_BUSY = 0
 PACKET_LEN = 16
 BIT_PULSE_S = 0.002
 
+def set_md_pin(pin: int, high: bool) -> None:
+    if high:
+        GPIO.setup(pin, GPIO.IN, pull_up_down=GPIO.PUD_OFF)
+    else:
+        GPIO.setup(pin, GPIO.OUT)
+        GPIO.output(pin, GPIO.LOW)
+
 def init_gpio():
-    GPIO.setup(MD0_PIN, GPIO.OUT)
-    GPIO.setup(MD1_PIN, GPIO.OUT)
     GPIO.setup(AUX_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
     GPIO.setup(ONE_PIN, GPIO.OUT)
     GPIO.setup(ZERO_PIN, GPIO.OUT)
 
     # 常开工作模式（更稳）
-    GPIO.output(MD0_PIN, GPIO.LOW)
-    GPIO.output(MD1_PIN, GPIO.HIGH)
+    # A39C: MD0/MD1 内部上拉，高电平用输入悬空
+    set_md_pin(MD0_PIN, True)
+    set_md_pin(MD1_PIN, False)
     GPIO.output(ONE_PIN, GPIO.LOW)
     GPIO.output(ZERO_PIN, GPIO.LOW)
 
     time.sleep(0.1)
-    # 手册：EN 拉低后 >=50ms 才能接收串口数据 :contentReference[oaicite:1]{index=1}
+    # 手册：模块上电初始化 >=50ms 才能接收串口数据
     time.sleep(0.06)
 
 def aux_monitor(stop_event, interval=0.01):
