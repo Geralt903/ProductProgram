@@ -1,6 +1,6 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="OCD Sentio" type="com.jetbrains.cidr.embedded.openocd.conf.type" factoryName="com.jetbrains.cidr.embedded.openocd.conf.factory" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Sentio" TARGET_NAME="Sentio.elf" CONFIG_NAME="Debug" version="1" RUN_TARGET_PROJECT_NAME="Sentio" RUN_TARGET_NAME="Sentio.elf">
-    <openocd version="1" gdb-port="3333" telnet-port="4444" board-config="C:\mingw-w64-v13.0.0\DevEnv\stm32f1_stlink.cfg" reset-type="INIT" download-type="UPDATED_ONLY">
+  <configuration default="false" name="OCD Sentio" type="com.jetbrains.cidr.embedded.openocd.conf.type" factoryName="com.jetbrains.cidr.embedded.openocd.conf.factory" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Sentio" TARGET_NAME="Sentio.elf" CONFIG_NAME="Debug-stm" version="1" RUN_TARGET_PROJECT_NAME="Sentio" RUN_TARGET_NAME="Sentio.elf">
+    <openocd version="1" gdb-port="3333" telnet-port="4444" board-config="C:\Users\1\OneDrive\DevEnv\stm32f1_stlink.cfg" reset-type="INIT" download-type="UPDATED_ONLY">
       <debugger kind="GDB" isBundled="true" />
     </openocd>
     <method v="2">

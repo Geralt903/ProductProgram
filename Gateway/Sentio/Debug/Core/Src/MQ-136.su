@@ -1,0 +1,3 @@
+../Core/Src/MQ-136.c:7:7:MQ136_ReadAO	24	static
+../Core/Src/MQ-136.c:17:9:MQ136_ReadDO	8	static
+../Core/Src/MQ-136.c:22:7:MQ136_ReadPPM	48	static

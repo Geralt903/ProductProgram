@@ -1,6 +1,6 @@
 ################################################################################
 # Automatically-generated file. Do not edit!
-# Toolchain: GNU Tools for STM32 (13.3.rel1)
+# Toolchain: GNU Tools for STM32 (12.3.rel1)
 ################################################################################
 
 -include ../makefile.init
@@ -60,8 +60,8 @@ all: main-build
 main-build: Sentio.elf secondary-outputs
 
 # Tool invocations
-Sentio.elf Sentio.map: $(OBJS) $(USER_OBJS) E:\ENT\Sentio\STM32F103C8TX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "Sentio.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m3 -T"E:\ENT\Sentio\STM32F103C8TX_FLASH.ld" --specs=nosys.specs -Wl,-Map="Sentio.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -u _printf_float -u _scanf_float -Wl,--start-group -lc -lm -Wl,--end-group
+Sentio.elf Sentio.map: $(OBJS) $(USER_OBJS) C:\Users\1\CLionProjects\ProductProgram\Gateway\Sentio\STM32F103C8TX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "Sentio.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m3 -T"C:\Users\1\CLionProjects\ProductProgram\Gateway\Sentio\STM32F103C8TX_FLASH.ld" --specs=nosys.specs -Wl,-Map="Sentio.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -u _printf_float -u _scanf_float -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 

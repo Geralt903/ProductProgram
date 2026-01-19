@@ -1,4 +1,4 @@
-../Core/Src/MQ-4.c:14:6:MQ4_Init	8	static
-../Core/Src/MQ-4.c:27:7:MQ4_ReadAO	16	static
-../Core/Src/MQ-4.c:45:9:MQ4_ReadDO	8	static
-../Core/Src/MQ-4.c:50:7:MQ4_ReadPPM	32	static
+../Core/Src/MQ-4.c:15:6:MQ4_Init	8	static
+../Core/Src/MQ-4.c:28:7:MQ4_ReadAO	24	static
+../Core/Src/MQ-4.c:42:9:MQ4_ReadDO	8	static
+../Core/Src/MQ-4.c:47:7:MQ4_ReadPPM	48	static
