@@ -2,6 +2,7 @@ import time
 import serial
 import json
 import os
+import sqlite3
 import paho.mqtt.client as mqtt
 
 PACKET_DIGITS = 35
@@ -14,9 +15,13 @@ SERIAL_BAUD = 9600
 READ_CHUNK = 128
 
 LOG_PATH = "data_log.csv"
+CACHE_DB_PATH = "data_cache.db"
 INITIAL_SAMPLES = 3
 INITIAL_INTERVAL_S = 5
 PERIODIC_INTERVAL_S = 3600
+FLUSH_INTERVAL_S = 30
+FLUSH_BATCH_SIZE = 50
+PUBLISH_TIMEOUT_S = 2.0
 
 MQTT_HOST = "20.205.107.61"
 MQTT_PORT = 1883
@@ -70,7 +75,7 @@ def create_mqtt_client() -> mqtt.Client:
     return client
 
 
-def publish_mqtt(client: mqtt.Client, ts: str, digits: str, parsed: dict) -> None:
+def publish_mqtt(client: mqtt.Client, ts: str, digits: str, parsed: dict) -> bool:
     payload = json.dumps(
         {
             "ts": ts,
@@ -83,19 +88,112 @@ def publish_mqtt(client: mqtt.Client, ts: str, digits: str, parsed: dict) -> Non
             "mq136": parsed["mq136"],
         }
     )
-    client.publish(MQTT_TOPIC, payload)
+    info = client.publish(MQTT_TOPIC, payload)
+    info.wait_for_publish(timeout=PUBLISH_TIMEOUT_S)
+    return info.is_published()
 
 
-def receiver_loop(ser: serial.Serial, mqtt_client: mqtt.Client | None) -> None:
+def init_cache_db(path: str) -> sqlite3.Connection:
+    conn = sqlite3.connect(path, timeout=5)
+    conn.execute("PRAGMA journal_mode=WAL;")
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS outbox (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ts TEXT NOT NULL,
+            digits TEXT NOT NULL,
+            device_id INTEGER NOT NULL,
+            temp REAL NOT NULL,
+            hum REAL NOT NULL,
+            dist REAL NOT NULL,
+            mq4 INTEGER NOT NULL,
+            mq136 INTEGER NOT NULL,
+            created_at REAL NOT NULL
+        )
+        """
+    )
+    conn.commit()
+    return conn
+
+
+def enqueue_cache(conn: sqlite3.Connection, ts: str, digits: str, parsed: dict) -> None:
+    conn.execute(
+        """
+        INSERT INTO outbox (ts, digits, device_id, temp, hum, dist, mq4, mq136, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            ts,
+            digits,
+            parsed["device_id"],
+            parsed["temperature"],
+            parsed["humidity"],
+            parsed["distance"],
+            parsed["mq4"],
+            parsed["mq136"],
+            time.time(),
+        ),
+    )
+    conn.commit()
+
+
+def flush_cache(conn: sqlite3.Connection, mqtt_client: mqtt.Client | None) -> None:
+    if mqtt_client is None:
+        return
+    rows = conn.execute(
+        """
+        SELECT id, ts, digits, device_id, temp, hum, dist, mq4, mq136
+        FROM outbox
+        ORDER BY id
+        LIMIT ?
+        """,
+        (FLUSH_BATCH_SIZE,),
+    ).fetchall()
+    if not rows:
+        return
+    sent_ids = []
+    for row in rows:
+        record_id, ts, digits, device_id, temp, hum, dist, mq4, mq136 = row
+        parsed = {
+            "device_id": device_id,
+            "temperature": temp,
+            "humidity": hum,
+            "distance": dist,
+            "mq4": mq4,
+            "mq136": mq136,
+        }
+        try:
+            if publish_mqtt(mqtt_client, ts, digits, parsed):
+                sent_ids.append(record_id)
+            else:
+                break
+        except Exception as e:
+            print("MQTT publish failed:", e)
+            break
+    if sent_ids:
+        conn.executemany("DELETE FROM outbox WHERE id = ?", [(rid,) for rid in sent_ids])
+        conn.commit()
+
+
+def receiver_loop(
+    ser: serial.Serial,
+    mqtt_client: mqtt.Client | None,
+    cache_conn: sqlite3.Connection,
+) -> None:
     print("=== Receiver started (waiting data) ===")
     digit_buffer = []
     initial_remaining = INITIAL_SAMPLES
     next_store_time = time.time()
+    next_flush_time = time.time()
 
     while True:
         try:
             chunk = ser.read(READ_CHUNK)
             if not chunk:
+                now = time.time()
+                if now >= next_flush_time:
+                    flush_cache(cache_conn, mqtt_client)
+                    next_flush_time = now + FLUSH_INTERVAL_S
                 continue
             for byte in chunk:
                 if 48 <= byte <= 57:
@@ -123,11 +221,13 @@ def receiver_loop(ser: serial.Serial, mqtt_client: mqtt.Client | None) -> None:
                 )
 
                 now = time.time()
+                if now >= next_flush_time:
+                    flush_cache(cache_conn, mqtt_client)
+                    next_flush_time = now + FLUSH_INTERVAL_S
                 if now >= next_store_time:
                     ensure_log_header(LOG_PATH)
                     append_record(LOG_PATH, ts, digits, parsed)
-                    if mqtt_client is not None:
-                        publish_mqtt(mqtt_client, ts, digits, parsed)
+                    enqueue_cache(cache_conn, ts, digits, parsed)
                     if initial_remaining > 0:
                         initial_remaining -= 1
                         if initial_remaining > 0:
@@ -145,17 +245,21 @@ def receiver_loop(ser: serial.Serial, mqtt_client: mqtt.Client | None) -> None:
 def main() -> None:
     ser = None
     mqtt_client = None
+    cache_conn = None
     try:
         ser = serial.Serial(SERIAL_PORT, SERIAL_BAUD, timeout=1)
         print("Serial opened:", ser.isOpen())
         mqtt_client = create_mqtt_client()
-        receiver_loop(ser, mqtt_client)
+        cache_conn = init_cache_db(CACHE_DB_PATH)
+        receiver_loop(ser, mqtt_client, cache_conn)
     except KeyboardInterrupt:
         pass
     finally:
         if mqtt_client is not None:
             mqtt_client.loop_stop()
             mqtt_client.disconnect()
+        if cache_conn is not None:
+            cache_conn.close()
         if ser and ser.isOpen():
             ser.close()
         print("Program Exited")
