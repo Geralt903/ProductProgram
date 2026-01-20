@@ -1,0 +1,8 @@
+//
+// Created by 1 on 2026/1/20.
+//
+
+#ifndef SENTIO_DEVICEIDCONF_H
+#define SENTIO_DEVICEIDCONF_H
+
+#endif //SENTIO_DEVICEIDCONF_H
