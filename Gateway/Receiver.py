@@ -46,8 +46,7 @@ def parse_digit_packet(digits: str) -> dict:
 
 def ensure_log_header(path: str) -> None:
     if not os.path.exists(path):
-        with open(path, "w", encoding="utf-8", newline="
-") as f:
+        with open(path, "w", encoding="utf-8", newline="\n") as f:
             f.write("ts,digits,device_id,temp,hum,dist,mq4,mq136\n")
 
 
@@ -57,8 +56,7 @@ def append_record(path: str, ts: str, digits: str, parsed: dict) -> None:
         f"{parsed['temperature']:.2f},{parsed['humidity']:.2f},"
         f"{parsed['distance']:.2f},{parsed['mq4']},{parsed['mq136']}\n"
     )
-    with open(path, "a", encoding="utf-8", newline="
-") as f:
+    with open(path, "a", encoding="utf-8", newline="\n") as f:
         f.write(line)
 
 
