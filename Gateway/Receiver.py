@@ -61,7 +61,10 @@ def append_record(path: str, ts: str, digits: str, parsed: dict) -> None:
 
 
 def create_mqtt_client() -> mqtt.Client:
-    client = mqtt.Client()
+    if hasattr(mqtt, "CallbackAPIVersion"):
+        client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION2)
+    else:
+        client = mqtt.Client()
     client.connect(MQTT_HOST, MQTT_PORT, 60)
     client.loop_start()
     return client
