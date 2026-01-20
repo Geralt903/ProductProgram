@@ -100,6 +100,8 @@ def receiver_loop(ser: serial.Serial, mqtt_client: mqtt.Client | None) -> None:
             for byte in chunk:
                 if 48 <= byte <= 57:
                     digit_buffer.append(chr(byte))
+                elif byte in (10, 13):
+                    continue
                 else:
                     if digit_buffer:
                         digit_buffer.clear()
