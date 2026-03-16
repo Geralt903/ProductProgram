@@ -145,13 +145,13 @@ int main(void)
 
     char packet[64];
     int len = snprintf(packet, sizeof(packet),
-                       "%010lu%05u%05u%05u%05u%05u",
+                       "%010lu   %05u   %05u   %05u   %05u   %05u   ",
                        (unsigned long)DEVICE_ID,
                        temperature_i, humidity_i, distance_i, mq4_i, mq136_i);
 
     HAL_UART_Transmit(&huart3, (uint8_t *)packet, len, 500);
 
-HAL_Delay(1000);
+    HAL_Delay(1000);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
