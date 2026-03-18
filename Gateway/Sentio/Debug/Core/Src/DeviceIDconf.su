@@ -1,0 +1,5 @@
+../Core/Src/DeviceIDconf.c:20:17:DeviceID_Checksum	16	static
+../Core/Src/DeviceIDconf.c:25:13:DeviceID_Pack	16	static
+../Core/Src/DeviceIDconf.c:34:16:DeviceID_Unpack	24	static
+../Core/Src/DeviceIDconf.c:48:6:DeviceID_Write	32	static
+../Core/Src/DeviceIDconf.c:58:9:DeviceID_Read	32	static
