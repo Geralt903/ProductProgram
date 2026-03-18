@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 import sqlite3
 import paho.mqtt.client as mqtt
 
-BROKER_ADDRESS = "20.205.107.61"  # 还是那个服务器
+BROKER_ADDRESS = "20.205.107.61"  # MQTT 服务器地址
 TOPIC = "test/stm32"
 SEND_INTERVAL_SEC = 5
 CLEAR_INTERVAL_SEC = 30 * 60
